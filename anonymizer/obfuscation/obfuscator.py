@@ -2,7 +2,9 @@ import math
 
 import numpy as np
 import scipy.stats as st
-import tensorflow as tf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 from anonymizer.obfuscation.helpers import kernel_initializer, bilinear_filter, get_default_session_config
 
@@ -91,7 +93,7 @@ class Obfuscator:
                                      trainable=False, validate_shape=True)
 
             # Use reflection padding in conjunction with convolutions without padding (no border effects)
-            pad = (self.kernel_size - 1) / 2
+            pad = (self.kernel_size - 1) // 2
             paddings = np.array([[0, 0], [pad, pad], [pad, pad], [0, 0]])
             img = tf.pad(image, paddings=paddings, mode='REFLECT')
             blurred_image = tf.nn.depthwise_conv2d_native(input=img, filter=W_blur, strides=[1, 1, 1, 1],

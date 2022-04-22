@@ -12,10 +12,6 @@ def YUV16toYUV8(luv_Y, luv_U, luv_V):
     """
     YUV uint16 convert to YUV uint8
     """
-    # luv_Y = np.squeeze(luv_image[0,:,:,:])
-    # luv_U = np.squeeze(luv_image[1,:,:,:])
-    # luv_V = np.squeeze(luv_image[2,:,:,:])
-
     luv_Ynor = (np.round(((luv_Y - np.min(luv_Y)) / (np.max(luv_Y) - np.min(luv_Y))) * 255)).astype(np.uint8)
     luv_Unor = (np.round(((luv_U - np.min(luv_U)) / (np.max(luv_U) - np.min(luv_U))) * 255)).astype(np.uint8)
     luv_Vnor = (np.round(((luv_V - np.min(luv_V)) / (np.max(luv_V) - np.min(luv_V))) * 255)).astype(np.uint8)
@@ -89,6 +85,7 @@ def boxLocal(detections, luv_image):
     rowMax = list()
     colMin = list()
     colMax = list()
+    score = list()
 
     for i in range(numBox):
         box = detections[i]
@@ -96,6 +93,7 @@ def boxLocal(detections, luv_image):
         rowMax.append(np.ceil(box.y_max).astype(np.uint16))
         colMin.append(np.int16(box.x_min))
         colMax.append(np.ceil(box.x_max).astype(np.uint16))
+        score.append(box.score)
     
     for j in range(numBox):
         # blur three channels of the original image
@@ -103,9 +101,23 @@ def boxLocal(detections, luv_image):
         row_max = rowMax[j]
         col_min = colMin[j]
         col_max = colMax[j]
+        thres = score[j]
+        height = row_max - row_min
+
+        if (height < 10 and thres > 0.9) or (height >= 10 and height <20 and thres > 0.8) or (height >= 20 and height <= 100):
         
-        luv_image[0,:,row_min:row_max,col_min:col_max] = 0
-        luv_image[1,:,row_min:row_max,col_min:col_max] = 0
-        luv_image[2,:,row_min:row_max,col_min:col_max] = 0
+            if len(luv_image.shape) == 4:
+                # tiff format image has four dimension
+            
+                luv_image[0,:,row_min:row_max,col_min:col_max] = 0
+                luv_image[1,:,row_min:row_max,col_min:col_max] = 0
+                luv_image[2,:,row_min:row_max,col_min:col_max] = 0
+            
+            elif len(luv_image.shape) == 3:
+                # png and jpg format image has three dimension
+                
+                luv_image[row_min:row_max, col_min:col_max, 0] = 0
+                luv_image[row_min:row_max, col_min:col_max, 1] = 0
+                luv_image[row_min:row_max, col_min:col_max, 2] = 0
 
     return luv_image

@@ -4,6 +4,8 @@ import argparse
 import tifffile as tiff
 import numpy as np
 import cv2
+from PIL import Image
+import time
 
 cur_dir  = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(cur_dir)
@@ -74,7 +76,7 @@ if __name__ =="__main__":
     fileList = []
     for dirPath, dirNames, fileNames in os.walk(srcDir):
         for fileName in fileNames:
-            if fileName.lower().endswith('.tiff'):
+            if fileName.lower().endswith('.tiff') or fileName.lower().endswith('.png'):
                 measFile = os.path.join(dirPath, fileName)
                 fileList.append(measFile)
     
@@ -92,25 +94,40 @@ if __name__ =="__main__":
     anonymizer = Anonymizer(obfuscator=obfuscator, detectors=detectors)
 
     for imageFile in fileList:
-    
-        tFile = os.path.basename(imageFile)[:-5] + '_Blurred.tiff'
-        tFile = os.path.join(tgtDir, tFile)
+        if imageFile.lower().endswith('.tiff'):
+            tFile = os.path.basename(imageFile)[:-5] + '_Blurred.tiff'
+            tFile = os.path.join(tgtDir, tFile)
 
-        luv_image = tiff.imread(imageFile)
+            luv_image = tiff.imread(imageFile)
 
-        luv_Y = np.squeeze(luv_image[0,:,:,:])
-        luv_U = np.squeeze(luv_image[1,:,:,:])
-        luv_V = np.squeeze(luv_image[2,:,:,:])
+            luv_Y = np.squeeze(luv_image[0,:,:,:])
+            luv_U = np.squeeze(luv_image[1,:,:,:])
+            luv_V = np.squeeze(luv_image[2,:,:,:])
 
-        luv_uint8 = tools.YUV16toYUV8(luv_Y, luv_U, luv_V)
-        rgb_uint8 = cv2.cvtColor(luv_uint8, cv2.COLOR_YUV2RGB)
+            luv_uint8 = tools.YUV16toYUV8(luv_Y, luv_U, luv_V)
+            rgb_uint8 = cv2.cvtColor(luv_uint8, cv2.COLOR_YUV2RGB)
 
-        anonymized_image, detections = anonymizer.anonymize_image(image=rgb_uint8, detection_thresholds=detection_thresholds)
+            timeStart = time.time()
+            anonymized_image, detections = anonymizer.anonymize_image(image=rgb_uint8, detection_thresholds=detection_thresholds)
 
-        luv_image = tools.boxLocal(detections, luv_image)
+            luv_image = tools.boxLocal(detections, luv_image)
+            
+            timeEnd = time.time() - timeStart
+            print(f'single image anonymization time: {timeEnd}')
+            tiff.imwrite(tFile, luv_image, compress=9, byteorder = '>')
 
-        tiff.imwrite(tFile, luv_image, compress=9, byteorder = '>')
+        elif imageFile.lower().endswith('.png'):
+            tFile = os.path.basename(imageFile)[:-4] + '_Blurred.png'
+            tFile = os.path.join(tgtDir, tFile)
 
+            image = Image.open(imageFile).convert('RGB')
+            np_image = np.array(image)
 
+            anonymized_image, detections = anonymizer.anonymize_image(image=np_image, detection_thresholds=detection_thresholds)
+
+            np_image = tools.boxLocal(detections, np_image)
+
+            pil_image = Image.fromarray((np_image).astype(np.uint8), mode='RGB')
+            pil_image.save(tFile)
 
 
